@@ -4,7 +4,7 @@ import { pool } from '../db.mjs';
 
 // Registrar un usuario
 const register = async (req, res) => {
-  const { name, password, role_id = 2 } = req.body;
+  const { name, password, role_id = 2} = req.body;
   
   try {
     // Comprobar si el usuario ya existe
@@ -44,7 +44,7 @@ const login = async (req, res) => {
     const result = await pool.query('SELECT * FROM users WHERE name = $1', [name]);
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'User no encontrado', name: name });
+      return res.status(400).json({ error: 'User no encontrado' });
     }
 
     const user = result.rows[0];
@@ -61,12 +61,13 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-
+    
     // Devolver respuesta con token
     return res.status(200).json({
       user: {
         id: user.id,
         name: user.name,
+        password: user.password,
         role_id: user.role_id
       },
       token
