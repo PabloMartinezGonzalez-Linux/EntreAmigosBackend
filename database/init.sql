@@ -28,8 +28,3 @@ INSERT INTO roles (nombre) VALUES
 ('admin'),
 ('user');
 
--- Insertar algunos usuarios con un rol asignado
-INSERT INTO users (name, password, role_id) VALUES
-('Admin', 'admin', 1),
-('User1', '1234', 2),
-('User2', '5678', 2);

@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { register, login } from '../controllers/authController.mjs';  
+import { register, login, checkStatus } from '../controllers/authController.mjs';  
+import { verifyToken } from '../middlewares/auth.js';
 
 const router = Router();
 
@@ -8,5 +9,7 @@ router.post('/register', register);
 
 // Ruta para iniciar sesión
 router.post('/login', login);
+
+router.get('/check-status', verifyToken ,checkStatus);
 
 export default router;

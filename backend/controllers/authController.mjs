@@ -5,7 +5,6 @@ import { pool } from '../db.mjs';
 // Registrar un usuario
 const register = async (req, res) => {
   const { name, password, role_id = 2} = req.body;
-  
   try {
     // Comprobar si el usuario ya existe
     const userCheck = await pool.query('SELECT * FROM users WHERE name = $1', [name]);
@@ -79,5 +78,32 @@ const login = async (req, res) => {
   }
 };
 
+const checkStatus = async (req, res) => {
+  try {
+    const { id } = req.user;
 
-export { register, login }
+    // Buscar al usuario en la base de datos
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const user = result.rows[0];
+
+    return res.status(200).json({
+      user: {
+        id: user.id,
+        name: user.name,
+        password: user.password,
+        role_id: user.role_id
+      },
+      token: req.headers['authorization'].split(' ')[1]
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error al obtener el estado del usuario' });
+  }
+};
+
+export { register, login, checkStatus }
