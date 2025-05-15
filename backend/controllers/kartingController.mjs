@@ -1,4 +1,5 @@
 import { pool } from '../db.mjs';
+import { updateKartingClassification } from '../services/kartingServices.mjs'
 
 export const registerUserForNextEvent = async (req, res) => {
   const { user_id } = req.body;
@@ -35,7 +36,7 @@ export const registerUserForNextEvent = async (req, res) => {
 
     await updateKartingClassification();
 
-    return res.status(200).json({ message: `User registered for the ${event.name} karting event.` });
+    return res.status(200).json({ message: '200' });
 
   } catch (err) {
     console.error(err);
@@ -70,7 +71,7 @@ export const getUsersForNextEvent = async (req, res) => {
       return res.status(404).json({ message: 'No users found for this event.' });
     }
 
-    return res.status(200).json(result.rows);
+    return res.status(200).json({ result: result.rows});
 
   } catch (err) {
     console.error(err);
@@ -121,9 +122,9 @@ export const actualizarClasificacionKarting = async (req, res) => {
 
 export const getKartingClassification = async (req, res) => {
   try {
-    // Consultar toda la clasificación de karting
+    // Consultar toda la clasificación de karting incluyendo el user_id
     const result = await pool.query(`
-      SELECT kc.position, kc.points, u.name AS user_name, kc.team, kc.gap, kc.best_circuit
+      SELECT kc.user_id, kc.position, kc.points, u.name AS user_name, kc.team, kc.gap, kc.best_circuit
       FROM karting_classifications kc
       JOIN users u ON kc.user_id = u.id
       ORDER BY kc.position;
@@ -133,13 +134,25 @@ export const getKartingClassification = async (req, res) => {
       return res.status(404).json({ message: 'No classification data found.' });
     }
 
-    return res.status(200).json(result.rows);
+    // Devolver los datos con el formato deseado
+    return res.status(200).json({
+      result: result.rows.map(row => ({
+        user_id: row.user_id,  // Incluir user_id
+        position: row.position,
+        points: row.points,
+        user_name: row.user_name,
+        team: row.team,
+        gap: row.gap,
+        best_circuit: row.best_circuit
+      }))
+    });
 
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 

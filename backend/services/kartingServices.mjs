@@ -1,3 +1,5 @@
+import { pool } from '../db.mjs';
+
 const calculateScore = (position) => {
   const scoreMap = {
     1: 25,
@@ -23,6 +25,12 @@ const updateKartingClassification = async () => {
       JOIN events e ON ker.event_id = e.id
       WHERE ker.position IS NOT NULL
     `);
+
+    // Validar si hay resultados para clasificar
+    if (results.rows.length === 0) {
+      console.log('No hay resultados válidos para clasificar. Se omite actualización.');
+      return;
+    }
 
     // 2. Calcular puntos por usuario y detectar mejor circuito
     const userStats = {};
@@ -67,19 +75,24 @@ const updateKartingClassification = async () => {
       const position = i + 1;
       const gap = (topScore - points) === 0 ? '-' : (topScore - points).toString();
 
-      // Obtener nombre y equipo del usuario
+      // Obtener solo el team del usuario
       const userResult = await pool.query(
-        'SELECT name, team FROM users WHERE id = $1',
+        'SELECT team FROM users WHERE id = $1',
         [user_id]
       );
 
-      const { name, team } = userResult.rows[0];
+      if (!userResult.rows.length) {
+        console.warn(`Usuario no encontrado en tabla users: ${user_id}`);
+        continue;
+      }
+
+      const { team } = userResult.rows[0];
 
       await pool.query(`
         INSERT INTO karting_classifications 
-        (position, points, name, team, gap, best_circuit)
+        (position, points, user_id, team, gap, best_circuit)
         VALUES ($1, $2, $3, $4, $5, $6)
-      `, [position, points, name, team, gap, best_circuit]);
+      `, [position, points, user_id, team, gap, best_circuit]);
     }
 
     console.log('Clasificación actualizada correctamente.');
@@ -87,3 +100,6 @@ const updateKartingClassification = async () => {
     console.error('Error actualizando clasificación:', err);
   }
 };
+
+
+export {updateKartingClassification};
