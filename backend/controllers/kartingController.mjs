@@ -85,12 +85,11 @@ export const getEventResultsByEventId = async (req, res) => {
   try {
     // Consultar los resultados del evento especificado por eventId
     const result = await pool.query(
-      `SELECT u.id, 
-              u.name, 
+      `SELECT u.id AS user_id, 
+              u.name AS user_name, 
               COALESCE(er.position, 0) AS position, 
               COALESCE(er.quick_lap, '00:00') AS quick_lap, 
               COALESCE(er.average_time, '00:00') AS average_time
-              COALESCE(er.score, 0) AS average_time
        FROM karting_event_results er
        JOIN users u ON u.id = er.user_id
        WHERE er.event_id = $1`,
@@ -101,7 +100,7 @@ export const getEventResultsByEventId = async (req, res) => {
       return res.status(404).json({ message: `No results found for event ID: ${eventId}` });
     }
 
-    return res.status(200).json(result.rows);
+    return res.status(200).json({result: result.rows});
 
   } catch (err) {
     console.error(err);
@@ -153,7 +152,64 @@ export const getKartingClassification = async (req, res) => {
   }
 };
 
+export const getEventList = async (req, res) => {
+  try {
+    // Consultar todos los eventos, solo id y name
+    const result = await pool.query(`
+      SELECT id, name
+      FROM events
+      ORDER BY id;
+    `);
 
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No events found.' });
+    }
+
+    // Devolver el resultado en formato JSON
+    return res.status(200).json({
+      result: result.rows.map(row => ({
+        event_id: row.id,
+        name: row.name
+      }))
+    });
+
+  } catch (err) {
+    console.error('Error fetching events:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateSingleEventResult = async (req, res) => {
+  const { event_id, user_id, position, quick_lap, average_time } = req.body;
+  console.log(req.body)
+
+  if (!event_id || !user_id || position === undefined || !quick_lap || !average_time) {
+    return res.status(400).json({ message: 'Missing required fields.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE karting_event_results
+       SET position = $1,
+           quick_lap = $2,
+           average_time = $3
+       WHERE event_id = $4 AND user_id = $5`,
+      [position, quick_lap, average_time, event_id, user_id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: `No result found for user_id ${user_id} in event_id ${event_id}` });
+    }
+
+    await updateKartingClassification();
+
+    return res.status(200).json({ message: '200' });
+
+  } catch (err) {
+    console.error('Error updating single event result:', err);
+    return res.status(500).json({ message: 'Server error while updating result.' });
+  }
+};
 
 
 export default { 
@@ -161,5 +217,7 @@ export default {
   getUsersForNextEvent, 
   getEventResultsByEventId, 
   actualizarClasificacionKarting,
-  getKartingClassification
+  getKartingClassification,
+  getEventList,
+  updateSingleEventResult
 };
