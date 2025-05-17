@@ -154,9 +154,13 @@ export const getKartingClassification = async (req, res) => {
 
 export const getEventList = async (req, res) => {
   try {
-    // Consultar todos los eventos, solo id y name
     const result = await pool.query(`
-      SELECT id, name
+      SELECT
+        id       AS event_id,
+        name,
+        sport_type,
+        event_date,
+        is_future
       FROM events
       ORDER BY id;
     `);
@@ -165,13 +169,7 @@ export const getEventList = async (req, res) => {
       return res.status(404).json({ message: 'No events found.' });
     }
 
-    // Devolver el resultado en formato JSON
-    return res.status(200).json({
-      result: result.rows.map(row => ({
-        event_id: row.id,
-        name: row.name
-      }))
-    });
+    return res.status(200).json({ result: result.rows });
 
   } catch (err) {
     console.error('Error fetching events:', err);
@@ -211,6 +209,80 @@ export const updateSingleEventResult = async (req, res) => {
   }
 };
 
+export const upsertEvent = async (req, res) => {
+  const {
+    event_id,
+    name,
+    sport_type,
+    event_date,  // esperamos algo como "20/12/2025"
+    is_future
+  } = req.body;
+
+  if (!name || !sport_type || !event_date || typeof is_future !== 'boolean') {
+    return res.status(400).json({ message: 'Missing or invalid fields.' });
+  }
+
+  try {
+    let result;
+
+    if (event_id != null) {
+      // Upsert con TO_DATE para DD/MM/YYYY
+      result = await pool.query(`
+        INSERT INTO events (id, name, sport_type, event_date, is_future)
+        VALUES ($1, $2, $3, TO_DATE($4, 'DD/MM/YYYY'), $5)
+        ON CONFLICT (id) DO UPDATE
+          SET
+            name       = EXCLUDED.name,
+            sport_type = EXCLUDED.sport_type,
+            event_date = EXCLUDED.event_date,
+            is_future  = EXCLUDED.is_future
+        RETURNING 
+          id         AS event_id,
+          name,
+          sport_type,
+          event_date,
+          is_future;
+      `, [
+        event_id,
+        name,
+        sport_type,
+        event_date,
+        is_future
+      ]);
+    } else {
+      // Creación con TO_DATE
+      result = await pool.query(`
+        INSERT INTO events (name, sport_type, event_date, is_future)
+        VALUES (
+          $1,
+          $2,
+          TO_DATE($3, 'DD/MM/YYYY'),
+          $4
+        )
+        RETURNING
+          id         AS event_id,
+          name,
+          sport_type,
+          event_date,
+          is_future;
+      `, [
+        name,
+        sport_type,
+        event_date,
+        is_future
+      ]);
+    }
+
+    // Devolvemos sólo el código de éxito '200' o '201'
+    const statusCode = event_id != null ? 200 : 201;
+    return res.status(statusCode).json({ message: '200' });
+
+  } catch (err) {
+    console.error('Error upserting event:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 export default { 
   registerUserForNextEvent, 
@@ -219,5 +291,6 @@ export default {
   actualizarClasificacionKarting,
   getKartingClassification,
   getEventList,
-  updateSingleEventResult
+  updateSingleEventResult,
+  upsertEvent
 };

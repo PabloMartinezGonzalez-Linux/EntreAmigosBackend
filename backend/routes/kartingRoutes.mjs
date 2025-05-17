@@ -6,7 +6,8 @@ import {
   actualizarClasificacionKarting, 
   getKartingClassification,
   getEventList,
-  updateSingleEventResult
+  updateSingleEventResult,
+  upsertEvent
 } from '../controllers/kartingController.mjs';
 
 const router = Router();
@@ -18,5 +19,6 @@ router.get('/getEventResults/:eventId', getEventResultsByEventId);
 router.post('/actualizar-clasificacion', actualizarClasificacionKarting);
 router.get('/karting-classification', getKartingClassification);
 router.put('/updateEventResults', updateSingleEventResult);
+router.post('/upsertEvent', upsertEvent);
 
 export default router;
