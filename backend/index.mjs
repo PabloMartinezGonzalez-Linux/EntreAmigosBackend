@@ -16,5 +16,8 @@ app.use('/auth', authRoutes);
 import kartingRoutes from './routes/kartingRoutes.mjs';
 app.use('/karting', kartingRoutes);
 
+import adminRoutes from './routes/adminRoutes.mjs';
+app.use('/admin', adminRoutes);
+
 const PORT = process.env.API_PORT || 3000;
 app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));

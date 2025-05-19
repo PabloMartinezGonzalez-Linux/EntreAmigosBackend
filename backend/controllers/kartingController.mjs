@@ -80,10 +80,8 @@ export const getUsersForNextEvent = async (req, res) => {
 };
 
 export const getEventResultsByEventId = async (req, res) => {
-  const { eventId } = req.params;  // Obtén el ID del evento de los parámetros de la URL
-
+  const { eventId } = req.params;  
   try {
-    // Consultar los resultados del evento especificado por eventId
     const result = await pool.query(
       `SELECT u.id AS user_id, 
               u.name AS user_name, 
@@ -108,47 +106,49 @@ export const getEventResultsByEventId = async (req, res) => {
   }
 };
 
-// En kartingController.mjs
 export const actualizarClasificacionKarting = async (req, res) => {
   try {
     await updateKartingClassification();
     res.status(200).json({ message: 'Clasificación actualizada correctamente.' });
   } catch (err) {
-    console.error(err);
+    console.error('Error en controlador actualizarClasificacionKarting:', err);
     res.status(500).json({ message: 'Error actualizando clasificación.' });
   }
 };
 
 export const getKartingClassification = async (req, res) => {
   try {
-    // Consultar toda la clasificación de karting incluyendo el user_id
     const result = await pool.query(`
-      SELECT kc.user_id, kc.position, kc.points, u.name AS user_name, kc.team, kc.gap, kc.best_circuit
+      SELECT
+        kc.user_id,
+        kc.position,
+        kc.points,
+        u.name       AS user_name,
+        kc.gap,
+        kc.best_circuit
       FROM karting_classifications kc
       JOIN users u ON kc.user_id = u.id
       ORDER BY kc.position;
     `);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'No classification data found.' });
+      return res.status(404).json({ message: 'No hay datos de clasificación.' });
     }
 
-    // Devolver los datos con el formato deseado
     return res.status(200).json({
       result: result.rows.map(row => ({
-        user_id: row.user_id,  // Incluir user_id
-        position: row.position,
-        points: row.points,
-        user_name: row.user_name,
-        team: row.team,
-        gap: row.gap,
+        user_id:      row.user_id,
+        position:     row.position,
+        points:       row.points,
+        user_name:    row.user_name,
+        gap:          row.gap,
         best_circuit: row.best_circuit
       }))
     });
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error('Error en controlador getKartingClassification:', err);
+    return res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
 
@@ -210,23 +210,35 @@ export const updateSingleEventResult = async (req, res) => {
 };
 
 export const upsertEvent = async (req, res) => {
+
+  const raw = req.body;
+
+  const converted = {
+    event_id:   raw.event_id ?? null,
+    name:       raw.name,
+    sport_type: raw.sport_type,
+    event_date: raw.event_date,                      
+    is_future:  raw.is_future === true || raw.is_future === 'true'        
+  };
+
   const {
     event_id,
     name,
     sport_type,
-    event_date,  // esperamos algo como "20/12/2025"
+    event_date,
     is_future
-  } = req.body;
+  } = converted;
 
   if (!name || !sport_type || !event_date || typeof is_future !== 'boolean') {
-    return res.status(400).json({ message: 'Missing or invalid fields.' });
+    return res
+      .status(400)
+      .json({ message: 'Faltan campos obligatorios o tienen formato inválido.' });
   }
 
   try {
     let result;
 
     if (event_id != null) {
-      // Upsert con TO_DATE para DD/MM/YYYY
       result = await pool.query(`
         INSERT INTO events (id, name, sport_type, event_date, is_future)
         VALUES ($1, $2, $3, TO_DATE($4, 'DD/MM/YYYY'), $5)
@@ -250,7 +262,6 @@ export const upsertEvent = async (req, res) => {
         is_future
       ]);
     } else {
-      // Creación con TO_DATE
       result = await pool.query(`
         INSERT INTO events (name, sport_type, event_date, is_future)
         VALUES (
@@ -273,15 +284,19 @@ export const upsertEvent = async (req, res) => {
       ]);
     }
 
-    // Devolvemos sólo el código de éxito '200' o '201'
     const statusCode = event_id != null ? 200 : 201;
-    return res.status(statusCode).json({ message: '200' });
+    return res
+      .status(statusCode)
+      .json({ message: 'OK', data: result.rows[0] });
 
   } catch (err) {
     console.error('Error upserting event:', err);
-    return res.status(500).json({ message: 'Server error' });
+    return res
+      .status(500)
+      .json({ message: 'Error interno del servidor.' });
   }
 };
+
 
 
 export default { 
