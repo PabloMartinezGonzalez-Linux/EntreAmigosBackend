@@ -21,4 +21,30 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-export default { getAllUsers };
+
+export const deleteUser = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Ejecutamos la consulta de eliminación
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+
+    if (result.rowCount === 0) {
+      // No se encontró ningún usuario con ese ID
+      return res.status(404).json({
+        message: `Usuario con id ${id} no encontrado`
+      });
+    }
+
+    return res.status(200).json({
+      message: `Usuario con id ${id} eliminado correctamente`
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return res.status(500).json({
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
+export default { getAllUsers, deleteUser };

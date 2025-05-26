@@ -297,7 +297,49 @@ export const upsertEvent = async (req, res) => {
   }
 };
 
+export const cancelRegisterUserForNextEvent = async (req, res) => {
+  // Leemos el user_id de los params en lugar del body
+  const { user_id } = req.params;
 
+  try {
+    // Obtener el próximo evento de karting futuro
+    const result = await pool.query(
+      'SELECT * FROM events WHERE sport_type = $1 AND is_future = true LIMIT 1',
+      ['karting']
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No upcoming karting events found.' });
+    }
+
+    const event = result.rows[0];
+
+    // Comprobar si el usuario está registrado en el evento
+    const checkUserRegistration = await pool.query(
+      'SELECT * FROM karting_event_results WHERE user_id = $1 AND event_id = $2',
+      [user_id, event.id]
+    );
+
+    if (checkUserRegistration.rows.length === 0) {
+      // El usuario no está registrado en este evento
+      return res.status(400).json({ message: 'User is not registered for this event.' });
+    }
+
+    // Eliminar la inscripción del usuario
+    await pool.query(
+      'DELETE FROM karting_event_results WHERE user_id = $1 AND event_id = $2',
+      [user_id, event.id]
+    );
+
+    // Actualizar la clasificación tras la cancelación
+    await updateKartingClassification();
+
+    return res.status(200).json({ message: 'User registration canceled successfully.' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
 export default { 
   registerUserForNextEvent, 
@@ -307,5 +349,6 @@ export default {
   getKartingClassification,
   getEventList,
   updateSingleEventResult,
-  upsertEvent
+  upsertEvent,
+  cancelRegisterUserForNextEvent
 };

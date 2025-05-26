@@ -7,12 +7,14 @@ import {
   getKartingClassification,
   getEventList,
   updateSingleEventResult,
-  upsertEvent
+  upsertEvent,
+  cancelRegisterUserForNextEvent
 } from '../controllers/kartingController.mjs';
 
 const router = Router();
 
 router.post('/registerUserForNextEvent', registerUserForNextEvent);
+router.delete('/cancelRegisterUserForNextEvent/:user_id',cancelRegisterUserForNextEvent);
 router.get('/getUserForNextEvent', getUsersForNextEvent);
 router.get('/getEventsList', getEventList);
 router.get('/getEventResults/:eventId', getEventResultsByEventId);
