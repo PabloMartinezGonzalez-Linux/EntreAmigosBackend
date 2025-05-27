@@ -1,5 +1,6 @@
 import { pool } from '../db.mjs';
 import { updateKartingClassification } from '../services/kartingServices.mjs'
+import { calculateScore } from '../services/kartingServices.mjs';
 
 export const registerUserForNextEvent = async (req, res) => {
   const { user_id } = req.body;
@@ -80,14 +81,15 @@ export const getUsersForNextEvent = async (req, res) => {
 };
 
 export const getEventResultsByEventId = async (req, res) => {
-  const { eventId } = req.params;  
+  const { eventId } = req.params;
   try {
     const result = await pool.query(
-      `SELECT u.id AS user_id, 
-              u.name AS user_name, 
-              COALESCE(er.position, 0) AS position, 
-              COALESCE(er.quick_lap, '00:00') AS quick_lap, 
-              COALESCE(er.average_time, '00:00') AS average_time
+      `SELECT u.id             AS user_id,
+              u.name           AS user_name,
+              COALESCE(er.position,      0) AS position,
+              COALESCE(er.quick_lap, '00:00') AS quick_lap,
+              COALESCE(er.average_time, '00:00') AS average_time,
+              COALESCE(er.points,        0) AS points
        FROM karting_event_results er
        JOIN users u ON u.id = er.user_id
        WHERE er.event_id = $1`,
@@ -98,10 +100,9 @@ export const getEventResultsByEventId = async (req, res) => {
       return res.status(404).json({ message: `No results found for event ID: ${eventId}` });
     }
 
-    return res.status(200).json({result: result.rows});
-
+    return res.status(200).json({ result: result.rows });
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching event results:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -179,20 +180,24 @@ export const getEventList = async (req, res) => {
 
 export const updateSingleEventResult = async (req, res) => {
   const { event_id, user_id, position, quick_lap, average_time } = req.body;
-  console.log(req.body)
 
   if (!event_id || !user_id || position === undefined || !quick_lap || !average_time) {
     return res.status(400).json({ message: 'Missing required fields.' });
   }
 
   try {
+    // Calcular puntos según la posición
+    const points = calculateScore(position);
+
+    // Actualizar resultado de evento incluyendo puntos
     const result = await pool.query(
       `UPDATE karting_event_results
        SET position = $1,
            quick_lap = $2,
-           average_time = $3
-       WHERE event_id = $4 AND user_id = $5`,
-      [position, quick_lap, average_time, event_id, user_id]
+           average_time = $3,
+           points = $4
+       WHERE event_id = $5 AND user_id = $6`,
+      [position, quick_lap, average_time, points, event_id, user_id]
     );
 
     if (result.rowCount === 0) {
@@ -200,14 +205,13 @@ export const updateSingleEventResult = async (req, res) => {
     }
 
     await updateKartingClassification();
-
-    return res.status(200).json({ message: '200' });
-
+    return res.status(200).json({ message: 'Result updated successfully.', points });
   } catch (err) {
     console.error('Error updating single event result:', err);
     return res.status(500).json({ message: 'Server error while updating result.' });
   }
 };
+
 
 export const upsertEvent = async (req, res) => {
 

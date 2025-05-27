@@ -19,68 +19,49 @@ export const calculateScore = (position) => {
 
 export const updateKartingClassification = async () => {
   try {
-    // 1. Recoger resultados válidos
-    const { rows: results } = await pool.query(`
-      SELECT ker.user_id, ker.position, e.name AS event_name
+    // 1. Agregar puntos por usuario
+    const { rows: aggregates } = await pool.query(`
+      SELECT
+        ker.user_id,
+        SUM(ker.points) AS total_points
       FROM karting_event_results ker
-      JOIN events e ON ker.event_id = e.id
-      WHERE ker.position IS NOT NULL
+      GROUP BY ker.user_id
     `);
 
-    if (results.length === 0) {
-      console.log('No hay resultados válidos para clasificar. Se omite actualización.');
+    if (aggregates.length === 0) {
+      console.log('No hay resultados para agregar puntos. Se omite actualización.');
       return;
     }
 
-    // 2. Calcular puntos y mejor circuito
-    const userStats = {};
-    for (const { user_id, position, event_name } of results) {
-      const pts = calculateScore(position);
-      if (!userStats[user_id]) {
-        userStats[user_id] = {
-          total_points:  0,
-          best_position: position,
-          best_circuit:   event_name
-        };
-      }
-      userStats[user_id].total_points += pts;
-      if (position < userStats[user_id].best_position) {
-        userStats[user_id].best_position = position;
-        userStats[user_id].best_circuit = event_name;
-      }
-    }
+    // 2. Ordenar de mayor a menor para asignar posiciones
+    aggregates.sort((a, b) => Number(b.total_points) - Number(a.total_points));
 
-    // 3. Ordenar ranking por puntos
-    const ranking = Object.entries(userStats)
-      .map(([user_id, stats]) => ({
-        user_id:      parseInt(user_id, 10),
-        points:       stats.total_points,
-        best_circuit: stats.best_circuit
-      }))
-      .sort((a, b) => b.points - a.points);
+    // 3. Calcular el máximo de puntos (líder)
+    const topScore = Number(aggregates[0].total_points);
 
-    const topScore = ranking[0]?.points || 0;
+    // 4. Vaciar la tabla de clasificaciones
+    await pool.query(`DELETE FROM karting_classifications`);
 
-    // 4. Resetear y poblar tabla de clasificaciones
-    await pool.query('DELETE FROM karting_classifications');
+    // 5. Insertar por cada usuario su posición, puntos y gap
+    const insertText = `
+      INSERT INTO karting_classifications (user_id, position, points, gap)
+      VALUES ($1, $2, $3, $4)
+    `;
 
-    for (let i = 0; i < ranking.length; i++) {
-      const { user_id, points, best_circuit } = ranking[i];
+    for (let i = 0; i < aggregates.length; i++) {
+      const { user_id, total_points } = aggregates[i];
+      const points = Number(total_points);
       const position = i + 1;
-      const gap = topScore === points ? '-' : String(topScore - points);
+      const gap = topScore - points;  // 0 para el líder, >0 para el resto
 
-      await pool.query(`
-        INSERT INTO karting_classifications
-          (position, points, user_id, gap, best_circuit)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [position, points, user_id, gap, best_circuit]);
+      await pool.query(insertText, [user_id, position, points, gap]);
     }
 
-    console.log('Clasificación actualizada correctamente.');
+    console.log('Clasificación actualizada: suma de puntos, posición y gap.');
 
   } catch (err) {
-    console.error('Error actualizando clasificación:', err);
-    throw err;  // relanzamos para que el controlador lo capture
+    console.error('Error actualizando clasificación con posición y gap:', err);
+    throw err;
   }
 };
 
