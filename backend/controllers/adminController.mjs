@@ -47,4 +47,32 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-export default { getAllUsers, deleteUser };
+export const setRole = async (req, res) => {
+  const { id } = req.params;
+  const { role_id } = req.body; 
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET role_id = $1 WHERE id = $2',
+      [role_id, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: `Usuario con id ${id} no encontrado`
+      });
+    }
+
+    return res.status(200).json({
+      message: `200`
+    });
+  } catch (error) {
+    console.error('Error actualizando role del usuario:', error);
+    return res.status(500).json({
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+};
+
+export default { getAllUsers, deleteUser, setRole };
