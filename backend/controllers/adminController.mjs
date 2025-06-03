@@ -3,14 +3,54 @@ import { pool } from '../db.mjs';
 
 export const getAllUsers = async (req, res) => {
   try {
-    // pool.query() devuelve un objeto, no un array
-    const result = await pool.query('SELECT * FROM users');
-    
-    // Extraemos rows directamente del objeto
-    const rows = result.rows;
+    const { gender, minAge, maxAge, role } = req.query;
+
+    const conditions = [];
+    const values = [];
+
+    let index = 1;
+
+    if (gender) {
+      conditions.push(`gender = $${index}`);
+      values.push(gender);
+      index++;
+    }
+
+    if (minAge != null) {
+      const min = parseInt(minAge, 10);
+      if (!isNaN(min)) {
+        conditions.push(`age >= $${index}`);
+        values.push(min);
+        index++;
+      }
+    }
+
+    if (maxAge != null) {
+      const max = parseInt(maxAge, 10);
+      if (!isNaN(max)) {
+        conditions.push(`age <= $${index}`);
+        values.push(max);
+        index++;
+      }
+    }
+
+    if (role) {
+      conditions.push(`role_id = $${index}`);
+      values.push(role);
+      index++;
+    }
+
+    let queryText = 'SELECT * FROM users';
+
+    if (conditions.length > 0) {
+      const whereClause = conditions.join(' AND ');
+      queryText += ` WHERE ${whereClause}`;
+    }
+
+    const result = await pool.query(queryText, values);
 
     return res.status(200).json({
-      result: rows
+      result: result.rows
     });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -21,15 +61,12 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-
 export const deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
-    // Ejecutamos la consulta de eliminación
     const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
 
     if (result.rowCount === 0) {
-      // No se encontró ningún usuario con ese ID
       return res.status(404).json({
         message: `Usuario con id ${id} no encontrado`
       });
@@ -53,7 +90,6 @@ export const setRole = async (req, res) => {
 
   try {
     const result = await pool.query(
-      'UPDATE users SET role_id = $1 WHERE id = $2',
       [role_id, id]
     );
 
