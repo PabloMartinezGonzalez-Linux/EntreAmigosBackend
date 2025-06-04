@@ -16,6 +16,9 @@ app.use('/auth', authRoutes);
 import kartingRoutes from './routes/kartingRoutes.mjs';
 app.use('/karting', kartingRoutes);
 
+import padelRoutes from './routes/padelRoutes.mjs';
+app.use('/padel', padelRoutes);
+
 import adminRoutes from './routes/adminRoutes.mjs';
 app.use('/admin', adminRoutes);
 
