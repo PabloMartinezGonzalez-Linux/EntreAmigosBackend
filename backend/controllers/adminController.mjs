@@ -86,10 +86,11 @@ export const deleteUser = async (req, res) => {
 
 export const setRole = async (req, res) => {
   const { id } = req.params;
-  const { role_id } = req.body; 
+  const { role_id } = req.body;
 
   try {
     const result = await pool.query(
+      'UPDATE users SET role_id = $1 WHERE id = $2 RETURNING *',
       [role_id, id]
     );
 
@@ -100,7 +101,8 @@ export const setRole = async (req, res) => {
     }
 
     return res.status(200).json({
-      message: `200`
+      message: `Rol actualizado correctamente`,
+      user: result.rows[0]
     });
   } catch (error) {
     console.error('Error actualizando role del usuario:', error);
@@ -110,5 +112,6 @@ export const setRole = async (req, res) => {
     });
   }
 };
+
 
 export default { getAllUsers, deleteUser, setRole };
